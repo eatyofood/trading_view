@@ -1,0 +1,415 @@
+//@version=4
+strategy('ALPACHE-TRENDY – ECHO – ', overlay=true)
+
+
+
+
+//...........................................................................[INPUTSSSSSSS]...........................................................................................
+
+
+
+trend_only        =   input(true,                title="───────────{1. only trade with trend?}────────────")
+with_vwap         =   input(false,                title="───────────{2. only when vwap-rizz is above avg??}────────────")
+with_eli          =   input(true,                title="───────────{3 only trade with elliot osilator?}────────────")
+
+c1                =   input(true,                title="───────────{4. first_yeet }────────────")
+c2                =   input(false,                title="───────────{4. second_yeet }────────────")
+c3                =   input(false,                title="───────────{4. third_yeet }────────────")
+sell_thresh       =   input(false,                title="───────────{5. sell @ touch? }────────────")
+buy_thresh        =   input(true,                title="───────────{6. buy @ touch? }────────────")
+use_a_stop        =   input(true,                title="───────────{7. use a stop?(atr is default)}────────────~")
+
+use_buy_can       =   input(false,                title="───────────{8. use the buy candles? }────────────")
+use_sell_can      =   input(false,                title="───────────{9. use the sell candles? }────────────")
+
+use_percent      =   input(true,                title="───────────{9. use a percent stop? }────────────")
+stop_percent      =   input(title='10. stop percentage? ',type=input.float,defval=5,minval=1)/100
+
+overSold          = input( 15 ,title='11. BUY-RIZZY')
+overBought         = input( 85,title='12.SELL-RIZZY' )
+len = input( 2 ,title='RIZZ_LEN' )
+
+
+length = input(title="buy_candle Length", type=input.integer, defval=4, minval=1)
+lbLength = input(title="sell_candle LbLength", type=input.integer, defval=4, minval=1)
+
+
+
+
+
+obLevel = input(title="VWAP-RIZ-ObLevel", type=input.integer, defval=80, minval=1)
+osLevel = input(title="VWAP-RIZ-OsLevel", type=input.integer, defval=20, minval=1)
+
+//...........................................................................[elliot wave-ocolator]...........................................................................................
+
+s2=ema(close, 5) - ema(close, 35)
+//c_color=s2 <= 0 ? red : lime
+
+eli_go = s2 > 0
+
+
+
+//...........................................................................[VWAP-RIZZ]...........................................................................................
+
+
+
+
+res_ = input(title="Resolution", type=input.resolution, defval="")
+rep_ = input(title="Allow Repainting?", type=input.bool, defval=false)
+bar_ = input(title="Allow Bar Color Change?", type=input.bool, defval=false)
+src_ = security(syminfo.tickerid, res_, vwap[rep_ ? 0 : barstate.isrealtime ? 1 : 0])[rep_ ? 0 : barstate.isrealtime ? 0 : 1]
+length_ = input(title="Length", type=input.integer, defval=14, minval=1)
+
+gain = src_ - nz(src_[1]) > 0 ? src_ - nz(src_[1]) : 0
+loss = src_ - nz(src_[1]) < 0 ? nz(src_[1]) - src_ : 0
+top = ema(gain, length_)
+bot = ema(loss, length_)
+rs = bot != 0 ? top / bot : 0
+rsi = bot == 0 ? 100 : top == 0 ? 0 : 100 - (100 / (1 + rs))
+rsiEma = ema(rsi, length_)
+//hline(obLevel, color=color.green)
+//hline(osLevel, color=color.red)
+sig = rsi > rsiEma or (rsi[1] < osLevel and rsi > osLevel) ? 1 : rsi < rsiEma or (rsi[1] > obLevel and rsi < obLevel) ? -1 : 0
+alertcondition(crossover(sig, 0), "Buy Signal", "Bullish Change Detected")
+alertcondition(crossunder(sig, 0), "Sell Signal", "Bearish Change Detected")
+rsiColor = sig > 0 ? color.green : sig < 0 ? color.red : color.black
+barcolor(bar_ ? rsiColor : na)
+//plot(rsi, color=rsiColor, linewidth=2)
+//plot(rsiEma, color=color.black, linewidth=1)
+
+
+//...........................................................................[candel stick shit]...........................................................................................
+
+
+inp = input(title="Source", type=input.source, defval=close)
+res = input(title="Resolution", type=input.resolution, defval="")
+rep = input(title="Allow Repainting?", type=input.bool, defval=false)
+bar = input(title="Allow Bar Color Change?", type=input.bool, defval=false)
+src = security(syminfo.tickerid, res, inp[rep ? 0 : barstate.isrealtime ? 1 : 0])[rep ? 0 : barstate.isrealtime ? 0 : 1]
+
+uCount = 0, dCount = 0
+for i = 0 to length - 1
+    uCount := uCount + (nz(src[i]) > nz(src[i + lbLength]) ? 1 : 0)
+    dCount := dCount + (nz(src[i]) < nz(src[i + lbLength]) ? 1 : 0)
+    
+drp = dCount == length ? 1 : uCount == length ? -1 : 0
+
+can_sig = drp > 0 or uCount > dCount ? 1 : drp < 0 or dCount > uCount ? -1 : 0
+drpColor = can_sig > 0 ? color.green : can_sig < 0 ? color.red : color.black
+alertcondition(crossover(drp, 0), "Buy Signal", "Bullish Change Detected")
+alertcondition(crossunder(drp, 0), "Sell Signal", "Bearish Change Detected")
+barcolor(bar ? drpColor : na)
+//plotshape(crossover(drp, 0), "Buy", shape.labelup, location.belowbar, color.green, text="Buy", textcolor=color.white)
+//plotshape(crossunder(drp, 0), "Sell", shape.labeldown, location.abovebar, color=color.red, text="Sell", textcolor=color.white)
+
+
+buy_can = crossover(drp, 0)
+sell_can = crossunder(drp, 0)
+
+
+
+//...........................................................................[VMA SUPER TREND]...........................................................................................
+
+
+
+// INPUTS {
+Visual              =   input("All Timeframes",     title="Visual",         options=["All Timeframes", "Intraday Only", "Daily/Weekly/Monthly Only"])
+Bar_Color           =   input("SuperTrend",         title="Bar Color",      options=["Heikin Ashi", "SuperTrend", "None"])
+
+na_1                =   input(false,                title="───────────{ SuperTrend }────────────")
+
+Vma                 =   input(5,                    title="Variable Moving Average                  ",  minval=1)
+Range               =   input(3,                    title="ATR Range",                                  minval=1, step=0.1)
+Periods             =   input(24,                   title="ATR Periods",                                minval=1)
+Show_Vma            =   input(true,                title="Show VMA")
+Show_Label          =   input(true,                 title="Show Label")
+// }
+
+// VMA BY LAZY_BEAR {
+k                   =   1.0 / Vma, pdm = max(close - close[1], 0), mdm = max(close[1] - close, 0)
+pdmS                =   float(na), pdmS := (1 - k) * nz(pdmS[1]) + k * pdm, mdmS = float(na), mdmS := (1 - k) * nz(mdmS[1]) + k * mdm
+s                   =   pdmS + mdmS, pdi = pdmS / s, mdi = mdmS / s
+pdiS                =   float(na), pdiS := (1 - k) * nz(pdiS[1]) + k * pdi, mdiS = float(na), mdiS := (1 - k) * nz(mdiS[1]) + k * mdi
+d                   =   abs(pdiS - mdiS), s1 = pdiS + mdiS, iS = float(na), iS := (1 - k) * nz(iS[1]) + k * d / s1
+hhv                 =   highest(iS, Vma), llv = lowest(iS, Vma), d1 = hhv - llv, vI = (iS - llv) / d1
+// }
+
+// SETTINGS {
+Timeframe           =   timeframe.isintraday and Visual=="Intraday Only" or timeframe.isdwm and Visual=="Daily/Weekly/Monthly Only" or Visual=="All Timeframes"
+
+Low                 =   float(na), Low := Timeframe ? ((1 - k * vI) * nz(Low[1]) + k * vI * low) : na
+Up                  =   Low - (Range*atr(Periods))
+Trend_Up            =   float(na), Trend_Up := high[1] > Trend_Up[1] ? max(Up, Trend_Up[1]) : Up
+
+High                =   float(na), High := Timeframe ? ((1 - k * vI) * nz(High[1]) + k * vI * high) : na
+Down                =   High + (Range*atr(Periods))
+Trend_Down          =   float(na), Trend_Down := low[1] < Trend_Down[1] ? min(Down, Trend_Down[1]) : Down
+
+Trend               =   float(na), Trend := low > Trend_Down[1] ? 1 : high < Trend_Up[1] ? -1 : nz(Trend[1], 1)
+Super_Trend         =   Trend == 1 ? Trend_Up : Trend_Down
+
+HA_Close            =   security(heikinashi(syminfo.tickerid), timeframe.period, close)
+HA_Open             =   security(heikinashi(syminfo.tickerid), timeframe.period, open)
+
+Bar_Colors          =   Bar_Color == "Heikin Ashi" ? (HA_Close > HA_Open ? #4caf50 : HA_Close < HA_Open ? #b71c1c : na) : 
+ Bar_Color == "SuperTrend" ? (Trend == 1 ? (close > close[1] ? #4caf50 : #800080) : (close > close[1] ? #2a2e39 : #b71c1c)) : na
+
+Vma_Colors          =   Trend == 1 ? color.new(#00c0ff, 0) : color.new(#000000, 0)
+Edge_Colors         =   Trend == 1 ? color.new(#fbc02d, 0) : color.new(#b71c1c, 0)
+
+Gain_Loss_Up        =   Trend ==  1 ? (close - close[barssince(Trend == -1)]) / close[barssince(Trend == -1)] * 100 : na
+Gain_Loss_Dn        =   Trend == -1 ? (close[barssince(Trend ==  1)] - close) / close[barssince(Trend ==  1)] * 100 : na
+
+Bars_Up             =   barssince(Trend == -1)
+Bars_Dn             =   barssince(Trend ==  1)
+
+Text_Color          =   Gain_Loss_Up >= 0 or Gain_Loss_Dn >= 0 ? color.new(#fbc02d, 0) : color.new(#b71c1c, 0)
+Text                =   
+ Trend ==  1 and Gain_Loss_Up >= 0 ? tostring(Gain_Loss_Up, "0.00") + "%" + " Profit\nIn " + tostring(Bars_Up, "#") + " Bars" : 
+ Trend ==  1 and Gain_Loss_Up <  0 ? tostring(Gain_Loss_Up, "0.00") + "%" + " Loss\nIn "   + tostring(Bars_Up, "#") + " Bars" : 
+ Trend == -1 and Gain_Loss_Dn >= 0 ? tostring(Gain_Loss_Dn, "0.00") + "%" + " Profit\nIn " + tostring(Bars_Dn, "#") + " Bars" : 
+ Trend == -1 and Gain_Loss_Dn <  0 ? tostring(Gain_Loss_Dn, "0.00") + "%" + " Loss\nIn "   + tostring(Bars_Dn, "#") + " Bars" : na
+// }
+
+// PLOTS {
+plot(Show_Vma ? (Trend == 1 ? Low : High) : na,             title="VMA",        color=Vma_Colors)
+
+Close_Plot          =   plot(Timeframe ? close : na,        transp=100,         editable=false)
+Super_Trend_Plot    =   plot(Super_Trend,                   title="Edge Line",  color=Edge_Colors, linewidth=2)
+
+fill(Close_Plot, Super_Trend_Plot,                          title="Cloud",      color=color.new(#000000, 95))
+barcolor(Bar_Colors,                                        title="BarColors")
+
+plotchar(Gain_Loss_Up, display=display.none, editable=false)
+plotchar(Gain_Loss_Dn, display=display.none, editable=false)
+
+Label               =   Show_Label and Timeframe ? label.new(x=timenow + round(change(time)*5), y=close, xloc=xloc.bar_time, yloc=yloc.price, 
+ style=label.style_label_left, color=color.new(#00c0ff, 70), size=size.large, textcolor=Text_Color, text=Text) : na, label.delete(Label[1])
+// }
+
+
+
+trendy = Trend == true
+
+plotshape(trendy, title="first smack", location=location.belowbar, color=color.green, transp=0, style=shape.arrowup,size=size.tiny)//,text='--FIRST SMACK--')
+
+
+//...........................................................................[ATR]...........................................................................................
+
+
+//get inputs
+atr_len = input(title='ATR length', type=input.integer, defval=14,minval=1)
+use_struc = input(title='Use Structire',type=input.bool,defval= true)
+look_back = input(title='look back', type=input.integer,defval = 7, minval=1)
+atr_stop_multi = input(title='ATR X ?',type=input.float,defval=1.5,minval=1)
+
+
+
+//got to off set your indicator
+offset = input(title='offset',type=input.float,defval=0)
+
+
+//calculate data
+atr = atr(atr_len)
+longstop = (use_struc ? lowest(low, look_back) : close) - atr * atr_stop_multi
+//so this is saying is 'use_struc' is true -use the lowest low from our look back period : OTHERWISE just take the close
+//lookback is default 7 from our input function
+//and then we multiply the ATR to the ATR multiplier to scale it!
+shortstop = (use_struc ? highest(high, look_back) : close) + atr * atr_stop_multi
+
+
+
+plot(atr,color=color.blue,transp=100,title='atr')
+plot(longstop,color=color.green,style=plot.style_linebr, title='long trailingn stop',transp=0)
+plot(shortstop,color=color.red,style=plot.style_linebr, title='short trailingn stop',transp=0)
+
+
+
+
+
+//...........................................................................[RSI]...........................................................................................
+
+price = close
+
+vrsi = rsi(price, len)
+co = crossover(vrsi, overSold)
+cu = crossunder(vrsi, overBought)
+
+if buy_thresh ==true
+    co :=crossunder(vrsi,overSold)
+
+
+
+first_corner = 0
+if co and first_corner[1]==0
+    first_corner:=1
+if cu
+    first_corner:=0
+if (cu==false) and co==false
+    first_corner:=first_corner[1]
+
+
+
+buy_second = (co==true) and (first_corner[1]==1)
+//test = first_corner==1
+test = buy_second
+second_corner=0
+if buy_second
+    second_corner:=1
+if cu
+    second_corner:=0
+if (cu==false) and (co==false)
+    second_corner:=second_corner[1]
+
+
+buy_third = (co==true) and (second_corner[1]==1)
+
+
+
+//LONG = buy_third
+//CLOSE = cu
+//LONG=buy_second
+
+first_baby = co==true and first_corner[1]==0 and second_corner[1]==0
+
+//==============================================================================================================================================================
+// +++++++++++++++++++++++++++++++++++++++++{SINALS}++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+first_sig = vrsi<1 and first_corner[1]==0 and second_corner[1]==0 
+
+second_sig = vrsi < 4 and (first_corner[1]==1) // and vrsi>16
+third_sig = vrsi[1] < 25 and vrsi>25 and (second_corner[1]==1)
+sell_sig = vrsi > 79 
+
+
+//user inputs
+
+close_var = cu
+
+
+
+LONG = first_baby
+if c2==true
+    LONG:=buy_second
+if c3==true
+    LONG:=buy_third
+if use_buy_can == true
+    LONG := buy_can
+if use_sell_can == true
+    close_var := sell_can
+thresh_sell = crossover(vrsi, overBought)
+//sell at thresh or corner?
+
+if sell_thresh==true
+    close_var:= thresh_sell
+
+
+
+
+
+
+
+stop = (close[1]*stop_percent)-low 
+//if use_percent==true
+//    stop:=per_stop
+
+
+
+
+per = low - (close*stop_percent)
+plot(per,color=color.lime,linewidth=2, title='stop_percentage',transp=0)
+per_stop = per
+if LONG == true
+    per_stop:=per
+if LONG == false
+    per_stop:=per_stop[1]
+    
+
+
+
+//plot(per)
+if LONG==true
+    stop:=longstop
+    if use_percent==true
+        stop:=per_stop
+
+
+
+if LONG==false
+    stop:=stop[1]
+
+    
+    
+
+stop_loss = low<stop
+
+CLOSE = close_var==true //and stop_loss==true
+if use_a_stop
+    CLOSE:=close_var or stop_loss
+plot(stop,title='actual_stop')
+
+//plotshape(test, title="second ATR SMACK", location=location.abovebar, color=color.green, transp=0, style=shape.flag,text='--SECOND CONRER--')
+
+plotshape(buy_third, title="third smack", location=location.belowbar, color=color.green, transp=0, style=shape.flag,text='--SMACK! III--')
+plotshape(buy_second, title="second smack", location=location.belowbar, color=color.green, transp=0, style=shape.flag,text='--SMACK! II--')
+plotshape(first_baby, title="first smack", location=location.belowbar, color=color.green, transp=0, style=shape.flag,text='--SMACK I --')
+//plotshape(first_baby, title="first smack", location=location.belowbar, color=color.green, transp=0, style=shape.flag,text='--FIRST SMACK--')
+
+
+//plot(rsi, color=rsiColor, linewidth=2)
+//plot(rsiEma, color=color.black, linewidth=1)
+
+
+//IMPORTAND: mark the rsi levels that are too low to be profitable (with a bool you know....)
+
+
+
+//TREND CRITERIA
+//if trend_only == true
+//    LONG:= LONG==true and trendy == true
+
+
+//LONG_TREND = LONG
+if trend_only == true
+    LONG := LONG and trendy
+    if trendy[1]==false and trendy == true
+        first_corner := 0
+        second_corner := 0
+//...................................................{ vwap stuff }...................................................
+//is vwap above average?
+vwap_above = rsi > rsiEma
+plotshape(vwap_above, title="first smack", location=location.abovebar, color=color.green, transp=0, style=shape.circle,size=size.tiny)//,text='--vwap--')
+plotshape(eli_go, title="elliot wave ocolator", location=location.abovebar, color=color.green, transp=0, style=shape.cross, text='e')
+
+
+//vwap=rizz condition
+if with_vwap == true
+    LONG := LONG and vwap_above
+//elliot wave condition
+if with_eli == true
+    LONG := LONG and eli_go
+
+if (LONG)
+    strategy.entry("RsiLE", strategy.long,100, comment="BUYT!")
+
+    
+if (CLOSE)
+    strategy.close("RsiLE", strategy.long, comment="SELLIT!")
+    
+// FIRST SIG
+//alertcondition(first_sig, title="TVIX - 15MIN-POSITION 1", message="15-POSITION 1,BUY:  1  TOUCH, SELL: 80 TOUCH, STOP: ATR, WIN: 56%%, YEILD: 1091%")
+
+
+// SECOND SIG 
+//alertcondition(second_sig, title="TVIX - 15MIN-POSITION 2", message="15-POSITION 2,BUY:  4  TOUCH, SELL: 90 TOUCH, STOP: ATR, WIN: 59%%, YEILD: 224441%")
+
+// THIRD SIG 
+//alertcondition(third_sig, title="TVIX - 15MIN-POSITION 3", message="15-POSITION 3,BUY:  4  TOUCH, SELL: 80 TOUCH, STOP: ATR, WIN: 55%%, YEILD: 1412%")
+
+// SELL SIG
+//alertcondition(first_sig, title="TVIX - 15MIN-POSITION 1", message="15-POSITION 1,BUY:  1  TOUCH, SELL: 80 TOUCH, STOP: ATR, WIN: 56%%, YEILD: 1091%")
+
+
+//poop
+
+

@@ -1,0 +1,380 @@
+//@version=4
+strategy("DEATHSTALKER - DELTA - ")//, overlay=true)
+//study(title="Slow Stochastic", shorttitle="SlowStoch")
+h0 = hline(80)
+h1 = hline(20)
+fill(h0, h1, color=color.aqua, transp=70)
+
+
+//INPUTS MUTHA FUCKA - DO YOU SPEAK IT???
+
+//STO-inputs
+get_some = input(10,title='1.buy_sto thesh')
+drop_it = input(90,title='2.drop it like its hot')
+
+//wait for the opertune moment...
+
+how_long = input(10, title='3.how long do you want to wai?')
+how_low  = input(30, title='4.how lows riz gotta go?')
+wait_for = input(true,title='5.do you want to wait for riz to fall?')
+only_corner=input(false,title='6.only buy a corner')
+validate_me=input(true,title='7.sell at a E-moving avg touch?')
+ma_len  =   input(20, title='8.how long for ya ma?')
+atr_stop_multi = input(title='9.STOP_LOSS_ATR multiple ?',type=input.float,defval=3,minval=.1)
+
+
+
+//.............................................{RIZ}.........................................
+riz = rsi(close,2)
+plot(riz,color=color.orange,title='rizzy')
+//if (not na(k) and not na(d))
+//   if (co and k < OverSold)
+//        strategy.entry("StochLE", strategy.long, comment="StochLE")
+//    if (cu and k > OverBought)
+//        strategy.entry("StochSE", strategy.short, comment="StochSE")
+
+//plot(strategy.equity, title="equity", color=color.red, linewidth=2, style=plot.style_areabr)
+
+
+
+
+
+
+
+res = input(title="Resolution", type=input.resolution, defval="D")
+rep = input(title="Allow Repainting?", type=input.bool, defval=false)
+bar = input(title="Allow Bar Color Change?", type=input.bool, defval=true)
+src = security(syminfo.tickerid, res, vwap[rep ? 0 : barstate.isrealtime ? 1 : 0])[rep ? 0 : barstate.isrealtime ? 0 : 1]
+length = input(title="Length", type=input.integer, defval=14, minval=1)
+obLevel = input(title="ObLevel", type=input.integer, defval=80, minval=1)
+osLevel = input(title="OsLevel", type=input.integer, defval=20, minval=1)
+
+//getting the different resolutions
+wres = input(title="Resolution", type=input.resolution, defval="W")
+mres = input(title="Resolution", type=input.resolution, defval="M")
+
+wsrc = security(syminfo.tickerid, wres, vwap[rep ? 0 : barstate.isrealtime ? 1 : 0])[rep ? 0 : barstate.isrealtime ? 0 : 1]
+msrc = security(syminfo.tickerid, mres, vwap[rep ? 0 : barstate.isrealtime ? 1 : 0])[rep ? 0 : barstate.isrealtime ? 0 : 1]
+
+
+
+
+
+
+//the realy close MA
+len = input(1, minval=1, title="Length")
+offset = input(title="Offset", type=input.integer, defval=0, minval=-500, maxval=500)
+out = ema(src, len)
+//plot(out, title="EMA", color=color.blue, linewidth=4,offset=offset)
+
+//iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiimight need this
+//yesterday=security(tickerid, 'D', close[1])
+
+//''''''''''''''''''''''''''''''''''''''''''[DAILY THINGS]''''''''''''''''''''''''''''''''''''''''''''''''
+//MOVING AVERAGE DAILY -50
+smad = sma(src,50)
+//plot(smad,linewidth=1,color=color.green)
+//MOVING AVERAGE DAILY -200
+smadd = sma(src,200)
+//plot(smadd,linewidth=4)
+
+
+//above 4day ema
+boo = close[1] > out
+////plotshape(boo,style=shape.arrowup,title='price is above 4 day ema')
+
+
+//,text='--SMACK! III--')
+//''''''''''''''''''''''''''''''''''''''''''[WEEKLY THINGS]''''''''''''''''''''''''''''''''''''''''''''''''
+
+// EXPONITIAL MOVING AVERAGE - 10
+emaw = ema(wsrc,10)
+//plot(emaw,linewidth=2,color=color.blue)
+
+
+
+//''''''''''''''''''''''''''''''''''''''''''[MONTHLY THINGS]''''''''''''''''''''''''''''''''''''''''''''''''
+//EXPONETIAL MOVING AVERAGE MONTHLY-10
+smam = sma(msrc,10)
+//plot(smam,linewidth=4,color=color.purple)
+
+
+
+
+smoothK = input(14, minval=1), smoothD = input(3, minval=1)
+k = sma(stoch(close, high, low, smoothK), 3)
+d = sma(k, smoothD)
+plot(k, color=color.navy,linewidth=3,title='sto1')
+plot(d, color=color.red,linewidth=3,title='sto2')
+kp = plot(k, color=color.navy)//,linewidth=3)
+dp = plot(d, color=color.red)//,linewidth=3)
+
+fill(kp,dp,k>d?color.navy:color.orange,transp=50)
+
+//.......................................................[gonna try and put a stochastic in here]
+
+
+
+getSource(srccc) =>
+    result = close
+    
+    if (srccc == "close")
+        result := close
+    if (srccc == "open")
+        result := open
+    if (srccc == "low")
+        result := low
+    if (srccc == "high")
+        result := high
+    if (srccc == "hl2")
+        result := hl2
+    
+    result
+
+rsiLength1 = input(14, title="RSI 1 length", type=input.integer)
+rsiLength2 = input(14, title="RSI 2 length", type=input.integer)
+
+stochLen1 = input(14, title="Stoch 1 length", type=input.integer)
+stochLen2 = input(14, title="Stoch 2 length", type=input.integer)
+
+stochAvgLen1 = input(3, title="Stoch RSI 1 average length", type=input.integer)
+stochAvgLen2 = input(3, title="Stoch RSI 2 average length", type=input.integer)
+
+stochSmoothLen1 = input(1, title="Stoch RSI 1 smooth length", type=input.integer)
+stochSmoothLen2 = input(3, title="Stoch RSI 2 smooth length", type=input.integer)
+
+timeFrame1 = input('M', title='Time frame 1', type=input.resolution)
+timeFrame2 = input('W', title='Time frame 2', type=input.resolution)
+
+srccc1 = input('close', title='RSI Source 1', type=input.string)
+seccc2 = input('close', title='RSI Source 2', type=input.string)
+
+rsi1 = security(syminfo.tickerid, timeFrame1, rsi(getSource(srccc1), rsiLength1))
+rsi2 = security(syminfo.tickerid, timeFrame2, rsi(getSource(seccc2), rsiLength2))
+
+// Determines whether to display at the other time resolutions
+useTimeFrame1Resolution = input(false, title='Use time frame 1 resolution', type=input.bool)
+useTimeFrame2Resolution = input(false, title='Use time frame 2 resolution', type=input.bool)
+
+// Stochastic RSI 1, calculated in current time frame
+stoch1 = stoch(rsi1, highest(rsi1, stochLen1), lowest(rsi1, stochLen1), stochLen1)
+stochAvg1 = sma(stoch1, stochAvgLen1)
+stochSmooth1 = sma(stochAvg1, stochSmoothLen1)
+
+// Stochastic RSI 1, calculated in time frame 1
+remoteStoch1 = security(syminfo.tickerid, timeFrame1, stoch1, lookahead=barmerge.lookahead_on)
+remoteStochAvg1 = security(syminfo.tickerid, timeFrame1, stochAvg1, lookahead=barmerge.lookahead_on)
+remoteStochSmooth1 = security(syminfo.tickerid, timeFrame1, stochSmooth1, lookahead=barmerge.lookahead_on)
+
+// Depending on what user wants, set the output to be displayed
+displayedStoch1 = useTimeFrame1Resolution ? remoteStoch1 : stoch1
+displayedStochAvg1 = useTimeFrame1Resolution ? remoteStochAvg1 : stochAvg1
+displayedStochSmooth1 = useTimeFrame1Resolution ? remoteStochSmooth1 : stochSmooth1
+
+// Stochastic RSI 2, calculated in current time frame
+stoch2 = stoch(rsi2, highest(rsi2, stochLen2), lowest(rsi2, stochLen2), stochLen2)
+stochAvg2 = sma(stoch2, stochAvgLen2)
+stochSmooth2 = sma(stochAvg2, stochSmoothLen2)
+
+
+plot(stochSmooth1, color=color.orange , linewidth=3,title='weeklysto1')
+plot(stochAvg1, color=color.blue , linewidth=3,title='weeklysto2')
+plot(stochSmooth2, color=color.red , linewidth=3,title='monthlysto1')
+plot(stochAvg2, color=color.green, linewidth=3,title='monthlysto2')
+
+
+gor = stochAvg1 > stochSmooth1? color.green : color.red
+oob = stochAvg2 > stochSmooth2 ? color.orange : color.blue
+//fill(stochAvg1, stochSmooth1, color=gor)
+//fill(stochAvg2, stochSmooth2, color=oob )
+
+
+//fill(p1, p2, color = line1 > line2 ? color.green : color.red)
+p1 = plot(stochAvg1)
+p2 = plot(stochSmooth1)
+//p3 = plot(sin(close))
+fill(p1, p2, stochAvg1>stochSmooth1? color.red : color.green)
+fill(p2, p1, color=color.blue)
+
+
+
+
+
+
+//[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[plots]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+//if boo
+//    label.new(bar_index, 70,color=color.green,style=label.style_diamond,size=size.tiny)
+    //label.style_arrowup
+
+//if stochSmooth1 > 50
+//    label.new(bar_index, 80,color=color.green,style=label.style_arrowup,size=size.tiny)
+    
+dt = time - time[1]
+//if stochSmooth2 > 70
+//    label.new(bar_index, 80,color=color.green)//,style=label.style_arrowup,size=size.huge)
+    
+//if stochSmooth1 > 70
+//    label.new(bar_index, 80,color=color.green,style=label.style_arrowup,size=size.tiny)
+    
+//if stochSmooth1 > 70
+//    label.new(bar_index, 80,color=color.green,style=label.style_arrowup,size=size.tiny)
+    
+//if stochSmooth1 > 70
+//    label.new(bar_index, 80,color=color.green,style=label.style_arrowup,size=size.tiny)
+sto1_up = stochSmooth1 > 50
+//stochAvg1 
+sto2_up = stochSmooth2 > 50
+//stochAvg2
+//OVER SOLD CURRENT STO
+
+
+sto_os = d<get_some
+sto_rev = k[1]<d[1] and k>d
+buy_sto = sto1_up and sto2_up and sto_os and sto_rev
+da_flag =  sto1_up and sto2_up and sto_os and sto_rev
+
+
+likeitshot = crossover(k,drop_it)
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.WAITING PARAM+++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+//.........................................................EXPONETIAL MOVING AVG..............................
+ma = ema(close,ma_len)
+
+
+i_feel_validated = low[1]>ma[1]and low<ma
+if validate_me
+    likeitshot := i_feel_validated
+
+
+waiting=0
+if buy_sto
+    waiting := 0
+if likeitshot
+    waiting := 0
+if (buy_sto==false)
+    waiting := waiting[1] + 1
+    
+riz_low_enough = riz < how_low
+
+// she going up (which is a corner if were below)
+she_curl = riz[1]<riz
+
+    
+
+test = she_curl
+//plotshape(test, title="test", location=location.top, color=color.green, transp=0, style=shape.circle,size=size.tiny,text='test!')
+
+// are we waiting?
+yes_were_waiting = waiting>0 and waiting<how_long
+plotshape(yes_were_waiting, title="we're waiting", location=location.bottom, color=color.yellow, transp=0, style=shape.circle,size=size.tiny,text='yes_were_waiting')
+
+// BAM! we got what we were waiting for
+bam = riz_low_enough and yes_were_waiting
+plotshape(bam, title="we were waiting and got our whish", location=location.top, color=color.green, transp=0, style=shape.triangleup,size=size.tiny,text='BAM!')
+
+
+// add conditions to buy
+if wait_for
+    buy_sto := bam
+
+// if yall wanna wait for the corner
+if only_corner
+    buy_sto := bam[1] and she_curl
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{STOP-LOSS}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++{ATR}+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//get inputs
+atr_len = input(title='ATR length', type=input.integer, defval=14,minval=1)
+use_struc = input(title='Use Structire',type=input.bool,defval= true)
+look_back = input(title='look back', type=input.integer,defval = 7, minval=1)
+
+//stop-target params
+atr_target_multi = input(title='7.TARGET_ATR multiple ?',type=input.float,defval=2.0,minval=.1)
+
+
+
+
+
+//got to off set your indicator
+//offset2 = input(title='offset',type=input.float,defval=1)
+
+//calculate data
+atr = atr(atr_len)
+atr_stop = (use_struc ? lowest(low, look_back) : close) - atr * atr_stop_multi //<---- THIS IS WHERE YOU CHANGE THE UP DOWN MULTIPLES
+atr_target = (use_struc ? highest(high, look_back) : close) + atr * atr_target_multi
+
+
+// ...................................Stop_Loss
+//use a multiple of ATR
+
+// bool to tell in in trade
+
+in_trade = false
+
+
+sell = likeitshot and in_trade
+buy = buy_sto and in_trade[1]==false and sell[1]==false
+if buy
+    in_trade := true
+if likeitshot
+    in_trade := false
+if (buy==false) and (sell==false)
+    in_trade := in_trade[1]
+
+
+stop_loss = atr_stop
+target    = atr_target
+if buy and (in_trade[1]==false)
+    stop_loss := atr_stop[1]
+    target    := target
+if in_trade
+    stop_loss := stop_loss[1]
+    target    := target[1]
+
+
+//...............................................PLOTS?
+chart_plots = input(false,title='throw the plots up on the price chart if you want to adjust ema or stoploss')
+//if chart_plots
+//plot(stop_loss,color=color.red,linewidth=3)
+///plot(ma,linewidth=3,color=color.aqua)
+
+stop_hit = in_trade[1] and (low[1]>stop_loss[1]) and (low<stop_loss)
+CLOSE = likeitshot or stop_hit
+if CLOSE
+    in_trade := false
+
+testing = in_trade
+plotshape(testing, title="storeversal", location=location.bottom, color=color.purple, transp=0, style=shape.arrowup,size=size.huge)
+// FINAL COUNT DOWN
+LONG = buy and CLOSE[1]==false//and in_trade[1]==false
+//CLOSE = likeitshot
+if (LONG)
+    strategy.entry("RsiLE", strategy.long,100, comment="BUYT!")
+
+    
+if (CLOSE)
+    strategy.close("RsiLE", strategy.long, comment="SELLIT!")
+
+
+
+
+//plotshape(sto_rev, title="storeversal", location=location.bottom, color=color.purple, transp=0, style=shape.arrowup,size=size.huge)
+//plotshape(sto_os, title="sto oversold", location=location.top, color=color.orange, transp=0, style=shape.arrowdown,size=size.huge)
+plotshape(da_flag, title="buyssto", location=location.bottom, color=color.fuchsia, transp=0, style=shape.flag,size=size.normal)
+plotshape(likeitshot, title="", location=location.top, color=color.aqua, transp=0, style=shape.flag,size=size.normal)
+//plotshape(boo, title="third smack", location=location.bottom, color=color.maroon, transp=0, style=shape.arrowup,size=size.tiny)
+//plotshape(boo, title="third smack", location=location.bottom, color=color.maroon, transp=0, style=shape.arrowup,size=size.tiny)
+//plotshape(sto1_up, title="weeklyup", location=location.top, color=color.aqua, transp=0, style=shape.arrowup,size=size.small)
+//plotshape(sto2_up, title="monthlyup", location=location.bottom, color=color.green, transp=0, style=shape.arrowup,size=size.tiny)
+
+
+
+
